@@ -9,98 +9,201 @@ import SwiftUI
 internal import UniformTypeIdentifiers
 
 struct ContentView: View {
-    let patitoFileType = UTType(filenameExtension: "patito", conformingTo: .data)!
-    
     @State private var sourceCode: String = ""
     @State private var outputText: String = ""
     @State private var isProcessing: Bool = false
     @State private var currentFilePath: URL?
     @State private var showingSaveDialog = false
     @State private var showingOpenDialog = false
+    @State private var documentToExport: PatitoDocument?
+    
+    private var backgroundColorView: some View {
+        #if os(iOS)
+        Color(uiColor: .systemBackground)
+        #else
+        Color(nsColor: .textBackgroundColor)
+        #endif
+    }
     
     var body: some View {
         HSplitView {
             // Editor Area
             VStack(alignment: .leading, spacing: 0) {
                 // Toolbar
-                HStack {
-                    Button(action: openFile) {
-                        Label("Open", systemImage: "doc")
+                HStack(spacing: 12) {
+                    // File Operations Group
+                    HStack(spacing: 8) {
+                        Button(action: openFile) {
+                            Label("Open", systemImage: "doc.text")
+                        }
+                        .buttonStyle(ToolbarButtonStyle())
+                        
+                        Button(action: saveFile) {
+                            Label("Save", systemImage: "square.and.arrow.down")
+                        }
+                        .buttonStyle(ToolbarButtonStyle())
+                        .disabled(sourceCode.isEmpty)
                     }
                     
-                    Button(action: saveFile) {
-                        Label("Save", systemImage: "square.and.arrow.down")
+                    Divider()
+                        .frame(height: 20)
+                    
+                    // File Info
+                    HStack(spacing: 6) {
+                        Image(systemName: "doc.text.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        
+                        Text(currentFilePath?.lastPathComponent ?? "Untitled.patito")
+                            .font(.system(.body, design: .monospaced, weight: .medium))
+                            .foregroundStyle(.primary)
                     }
-                    .disabled(sourceCode.isEmpty)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(.tint.opacity(0.1))
+                    )
                     
                     Spacer()
                     
-                    Text(currentFilePath?.lastPathComponent ?? "Untitled.patito")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                    
-                    Spacer()
-                    
-                    Button(action: compile) {
-                        Label("Compile", systemImage: "hammer")
+                    // Compilation Actions Group
+                    HStack(spacing: 8) {
+                        Button(action: compile) {
+                            HStack(spacing: 6) {
+                                if isProcessing {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "hammer.fill")
+                                }
+                                Text("Compile")
+                            }
+                        }
+                        .buttonStyle(ActionButtonStyle(color: .orange))
+                        .disabled(sourceCode.isEmpty || isProcessing)
+                        
+                        Button(action: compileAndRun) {
+                            HStack(spacing: 6) {
+                                if isProcessing {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: "play.fill")
+                                }
+                                Text("Run")
+                            }
+                        }
+                        .buttonStyle(ActionButtonStyle(color: .green))
+                        .disabled(sourceCode.isEmpty || isProcessing)
+                        .keyboardShortcut("r", modifiers: .command)
                     }
-                    .disabled(sourceCode.isEmpty || isProcessing)
-                    
-                    Button(action: compileAndRun) {
-                        Label("Compile & Run", systemImage: "play.fill")
-                    }
-                    .disabled(sourceCode.isEmpty || isProcessing)
-                    .keyboardShortcut("r", modifiers: .command)
                 }
-                .padding()
-                .background(.background.opacity(0.8))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(.ultraThinMaterial)
                 
                 Divider()
                 
                 // Code Editor
-                TextEditor(text: $sourceCode)
-                    .font(.system(.body, design: .monospaced))
-                    .padding(8)
+                ZStack(alignment: .topLeading) {
+                    TextEditor(text: $sourceCode)
+                        .font(.system(size: 14, weight: .regular, design: .monospaced))
+                        .scrollContentBackground(.hidden)
+                        .padding(16)
+                    
+                    if sourceCode.isEmpty {
+                        Text("// Start coding in Patito...")
+                            .font(.system(size: 14, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                            .padding(24)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .background(backgroundColorView)
             }
-            .frame(minWidth: 400)
+            .frame(minWidth: 450)
             
             // Output Area
             VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Text("Output")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
+                // Output Header
+                HStack(spacing: 12) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "terminal.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        
+                        Text("Console Output")
+                            .font(.system(.body, design: .default, weight: .semibold))
+                            .foregroundStyle(.primary)
+                    }
                     
                     Spacer()
+                    
+                    if !outputText.isEmpty {
+                        Text("\(outputText.components(separatedBy: "\n").count) lines")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     
                     Button(action: clearOutput) {
                         Label("Clear", systemImage: "trash")
                             .labelStyle(.iconOnly)
                     }
+                    .buttonStyle(ToolbarButtonStyle())
                     .disabled(outputText.isEmpty)
                 }
-                .padding()
-                .background(.background.opacity(0.8))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(.ultraThinMaterial)
                 
                 Divider()
                 
+                // Output Content
                 ScrollView {
-                    Text(outputText.isEmpty ? "Output will appear here..." : outputText)
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundStyle(outputText.isEmpty ? .secondary : .primary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(8)
+                    if outputText.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "text.alignleft")
+                                .font(.system(size: 32))
+                                .foregroundStyle(.tertiary)
+                            
+                            Text("No output yet")
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                            
+                            Text("Compile or run your code to see results")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding()
+                    } else {
+                        AttributedOutputText(text: outputText)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
+                    }
                 }
+                .background(backgroundColorView)
             }
-            .frame(minWidth: 300)
+            .frame(minWidth: 350)
         }
         .fileImporter(
             isPresented: $showingOpenDialog,
-            allowedContentTypes: [patitoFileType],
+            allowedContentTypes: PatitoDocument.readableContentTypes,
             allowsMultipleSelection: false
         ) { result in
             handleFileImport(result)
+        }
+        .fileExporter(
+            isPresented: $showingSaveDialog,
+            document: documentToExport,
+            contentType: .plainText,
+            defaultFilename: "Untitled.patito"
+        ) { result in
+            handleFileExport(result)
         }
         .fileDialogMessage("Select a .patito file")
     }
@@ -140,26 +243,25 @@ struct ContentView: View {
         }
     }
     
-    private func saveFile() {
-        if let url = currentFilePath {
-            saveToURL(url)
-        } else {
-            saveFileAs()
+    private func handleFileExport(_ result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            currentFilePath = url
+            appendOutput("✓ Saved: \(url.lastPathComponent)")
+        case .failure(let error):
+            appendOutput("✗ Error saving file: \(error.localizedDescription)")
         }
+        documentToExport = nil
+    }
+    
+    private func saveFile() {
+        documentToExport = PatitoDocument(content: sourceCode)
+        showingSaveDialog = true
     }
     
     private func saveFileAs() {
-        let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.plainText]
-        savePanel.nameFieldStringValue = "Untitled.patito"
-        savePanel.message = "Save your Patito source code"
-        
-        savePanel.begin { response in
-            if response == .OK, let url = savePanel.url {
-                saveToURL(url)
-                currentFilePath = url
-            }
-        }
+        documentToExport = PatitoDocument(content: sourceCode)
+        showingSaveDialog = true
     }
     
     private func saveToURL(_ url: URL) {
@@ -338,6 +440,121 @@ struct ContentView: View {
     
     private func clearOutput() {
         outputText = ""
+    }
+}
+
+// MARK: - Custom Button Styles
+
+struct PatitoDocument: FileDocument {
+    static private let patitoFileType = UTType(filenameExtension: "patito", conformingTo: .data)!
+    static var readableContentTypes: [UTType] { [.plainText, patitoFileType] }
+    
+    var content: String
+    
+    init(content: String = "") {
+        self.content = content
+    }
+    
+    init(configuration: ReadConfiguration) throws {
+        if let data = configuration.file.regularFileContents,
+           let string = String(data: data, encoding: .utf8) {
+            content = string
+        } else {
+            content = ""
+        }
+    }
+    
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        let data = content.data(using: .utf8) ?? Data()
+        return FileWrapper(regularFileWithContents: data)
+    }
+}
+
+struct ToolbarButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(configuration.isPressed ? Color.accentColor.opacity(0.2) : Color.clear)
+            )
+            .contentShape(Rectangle())
+    }
+}
+
+struct ActionButtonStyle: ButtonStyle {
+    let color: Color
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(color.opacity(configuration.isPressed ? 0.3 : 0.2))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(color.opacity(0.4), lineWidth: 1)
+            )
+            .foregroundStyle(color)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Attributed Output Text View
+
+struct AttributedOutputText: View {
+    let text: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(text.components(separatedBy: "\n").enumerated()), id: \.offset) { index, line in
+                HStack(alignment: .top, spacing: 8) {
+                    // Line number indicator (optional, only for output sections)
+                    if line.hasPrefix("---") {
+                        Image(systemName: "chevron.right.circle.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tint)
+                            .padding(.top, 4)
+                    } else if !line.isEmpty {
+                        Circle()
+                            .fill(lineColor(for: line))
+                            .frame(width: 6, height: 6)
+                            .padding(.top, 6)
+                    }
+                    
+                    Text(line.isEmpty ? " " : line)
+                        .font(.system(size: 13, weight: lineWeight(for: line), design: .monospaced))
+                        .foregroundStyle(lineColor(for: line))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+    
+    private func lineColor(for line: String) -> Color {
+        if line.hasPrefix("✓") {
+            return .green
+        } else if line.hasPrefix("✗") || line.contains("failed") || line.contains("Error") {
+            return .red
+        } else if line.hasPrefix("---") {
+            return .blue
+        } else {
+            return .primary
+        }
+    }
+    
+    private func lineWeight(for line: String) -> Font.Weight {
+        if line.hasPrefix("✓") || line.hasPrefix("✗") || line.hasPrefix("---") {
+            return .semibold
+        } else {
+            return .regular
+        }
     }
 }
 
