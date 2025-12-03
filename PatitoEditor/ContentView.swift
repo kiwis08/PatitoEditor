@@ -200,7 +200,7 @@ struct ContentView: View {
             // Run compiler
             let compileResult = await runProcess(
                 executablePath: compilerPath,
-                arguments: [tempSourceURL.path]
+                arguments: [tempSourceURL.path, "-c"]
             )
             
             if !compileResult.output.isEmpty {
