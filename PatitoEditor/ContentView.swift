@@ -9,6 +9,8 @@ import SwiftUI
 internal import UniformTypeIdentifiers
 
 struct ContentView: View {
+    let patitoFileType = UTType(filenameExtension: "patito", conformingTo: .data)!
+    
     @State private var sourceCode: String = ""
     @State private var outputText: String = ""
     @State private var isProcessing: Bool = false
@@ -95,7 +97,7 @@ struct ContentView: View {
         }
         .fileImporter(
             isPresented: $showingOpenDialog,
-            allowedContentTypes: [.plainText],
+            allowedContentTypes: [patitoFileType],
             allowsMultipleSelection: false
         ) { result in
             handleFileImport(result)
@@ -113,6 +115,16 @@ struct ContentView: View {
         switch result {
         case .success(let urls):
             guard let url = urls.first else { return }
+            
+            // Request security-scoped access to the file
+            guard url.startAccessingSecurityScopedResource() else {
+                appendOutput("✗ Error: Unable to access file")
+                return
+            }
+            
+            defer {
+                url.stopAccessingSecurityScopedResource()
+            }
             
             do {
                 let content = try String(contentsOf: url, encoding: .utf8)
@@ -151,6 +163,15 @@ struct ContentView: View {
     }
     
     private func saveToURL(_ url: URL) {
+        // Request security-scoped access if this is from a previous file open
+        let needsScopedAccess = url.startAccessingSecurityScopedResource()
+        
+        defer {
+            if needsScopedAccess {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        
         do {
             try sourceCode.write(to: url, atomically: true, encoding: .utf8)
             appendOutput("✓ Saved: \(url.lastPathComponent)")
@@ -163,12 +184,14 @@ struct ContentView: View {
     
     private func compile() {
         Task {
+            clearOutput()
             await performCompilation(andRun: false)
         }
     }
     
     private func compileAndRun() {
         Task {
+            clearOutput()
             await performCompilation(andRun: true)
         }
     }
