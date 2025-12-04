@@ -1,0 +1,60 @@
+{
+  "fill" : {
+    "solid" : "display-p3:0.37314,0.44340,0.33126,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "glass" : false,
+          "image-name" : "Duck--Streamline-Noto-Emojis.svg",
+          "name" : "Duck--Streamline-Noto-Emojis",
+          "position" : {
+            "scale" : 30,
+            "translation-in-points" : [
+              293.196875,
+              193.4140625
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "image-name" : "programming-code-signs-svgrepo-com.svg",
+          "name" : "programming-code-signs-svgrepo-com",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -58.3046875,
+              -161.78687283183842
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
